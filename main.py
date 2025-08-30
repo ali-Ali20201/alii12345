@@ -23,8 +23,6 @@ user_states = {}
 # تم وضع آيدي الأدمن الخاص بك هنا
 ADMIN_IDS = {7509255483}
 ADMIN_GROUP_ID = -4947085075 # استبدل هذا الآيدي بالآيدي الفعلي لمجموعة المدير
-ADMIN_FILE = 'admins.txt'
-ADMINS_IDS = []
 # مفاتيح الإعدادات
 SETTING_SUPPORT = "support_user"
 SETTING_SHAM_CODE = "sham_code"
@@ -1660,6 +1658,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
 
 
 
