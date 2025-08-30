@@ -1,4 +1,3 @@
-import os
 import sqlite3
 import logging
 import re
@@ -158,9 +157,6 @@ def is_admin(user_id: int) -> bool:
     return user_id in ADMINS_IDS
 
 
-
-def is_admin(user_id: int) -> bool:
-    return user_id in ADMINS_IDS
 
 def remove_admin(user_id: int):
     conn = sqlite3.connect('database.db')
@@ -1030,50 +1026,6 @@ async def on_group_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
 
-async def broadcast_msg_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # تحقق من صلاحيات الأدمن
-    if not is_admin(update.effective_user.id):
-        await update.callback_query.answer("غير مصرح لك باستخدام هذا الأمر.")
-        return
-
-    q = update.callback_query
-    await q.answer()
-
-    # تحديد الحالة (flow) ليتم معالجة الرسالة النصية لاحقاً
-    context.user_data["flow"] = "adm_broadcast"
-    await q.message.reply_text("أرسل الرسالة التي تريد إرسالها لجميع المستخدمين.")
-
-async def send_broadcast_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # تحقق من صلاحيات الأدمن والحالة الصحيحة
-    if not is_admin(update.effective_user.id) or context.user_data.get("flow") != "adm_broadcast":
-        await update.message.reply_text("غير مصرح لك باستخدام هذا الأمر.")
-        return
-
-    message_text = update.message.text
-    # إعادة تعيين الحالة بعد المعالجة
-    context.user_data["flow"] = None
-
-    conn = sqlite3.connect('database.db')
-    cur = conn.cursor()
-    cur.execute("SELECT user_id FROM users")
-    users = cur.fetchall()
-    conn.close()
-
-    sent_count = 0
-    blocked_count = 0
-
-    for user in users:
-        try:
-            await context.bot.send_message(chat_id=user[0], text=message_text)
-            sent_count += 1
-        except Exception:
-            blocked_count += 1
-
-    await update.message.reply_text(
-        f"✅ تم إرسال الرسالة بنجاح.\n\n"
-        f"عدد الرسائل المرسلة: {sent_count}\n"
-        f"عدد المستخدمين المحظورين: {blocked_count}"
-    )
 
 # --------------------- لوحة الأدمن ---------------------
 async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1694,15 +1646,10 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(on_any_callback))
 
 
-    # 2. هذه السطور يجب أن تكون مع بقية المعالجات
-    app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE & ~filters.COMMAND, send_broadcast_message))
 
-
-    app.add_handler(CallbackQueryHandler(broadcast_msg_handler, pattern="^ADM_BROADCAST_MSG$"))
 
     # الخطوة 2: معالج الرسالة النصية التي سترسلها
     # هذا المعالج يجب أن يكون في النهاية
-    app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE & ~filters.COMMAND, send_broadcast_message))
 
     app.add_handler(CallbackQueryHandler(on_any_callback))
 
@@ -1713,5 +1660,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
 
 
