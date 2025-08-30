@@ -23,6 +23,7 @@ user_states = {}
 # تم وضع آيدي الأدمن الخاص بك هنا
 ADMIN_IDS = {7509255483}
 ADMIN_GROUP_ID = -4947085075 # استبدل هذا الآيدي بالآيدي الفعلي لمجموعة المدير
+
 # مفاتيح الإعدادات
 SETTING_SUPPORT = "support_user"
 SETTING_SHAM_CODE = "sham_code"
@@ -116,45 +117,6 @@ def add_admin(user_id: int):
     cur.execute("INSERT OR IGNORE INTO admins (user_id) VALUES (?)", (user_id,))
     conn.commit()
     conn.close()
-
-def load_admins():
-    """
-    تقرأ آيديات الأدمن من ملف نصي.
-    """
-    if os.path.exists(ADMIN_FILE):
-        with open(ADMIN_FILE, 'r') as f:
-            lines = f.readlines()
-            for line in lines:
-                try:
-                    ADMINS_IDS.append(int(line.strip()))
-                except ValueError:
-                    continue
-
-def save_admins():
-    """
-    تحفظ آيديات الأدمن في ملف نصي.
-    """
-    with open(ADMIN_FILE, 'w') as f:
-        for admin_id in ADMINS_IDS:
-            f.write(str(admin_id) + '\n')
-
-def add_admin(user_id: int):
-    """
-    تضيف آيدي جديد إلى قائمة الأدمن وتنقله إلى الملف.
-    """
-    if user_id not in ADMINS_IDS:
-        ADMINS_IDS.append(user_id)
-        save_admins()
-        return True
-    return False
-
-def is_admin(user_id: int) -> bool:
-    """
-    تتحقق مما إذا كان المستخدم أدمن من خلال القائمة.
-    """
-    return user_id in ADMINS_IDS
-
-
 
 def remove_admin(user_id: int):
     conn = sqlite3.connect('database.db')
@@ -849,38 +811,6 @@ async def on_user_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ------------------- الرسالة الافتراضية -------------------
     await update.message.reply_text("اختر إجراءً من الأزرار.", reply_markup=main_menu_kb())
 
-    # ------------------- الأولوية الثالثة: عملية الشراء -------------------
-    if current_flow == "buy_contact":
-        contact = text
-        context.user_data["buy_contact"] = contact
-        prod_id = context.user_data.get("buy_prod_id")
-        prow = get_product(prod_id)
-        if not prow:
-            await update.message.reply_text("تعذر إيجاد المنتج. الرجاء المحاولة مرة أخرى.")
-            context.user_data.clear()
-            return
-
-        current_balance = get_balance(user_id)
-        new_balance = current_balance - prow['price']
-
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("✅ تأكيد الطلب", callback_data="BUY_CONFIRM")],
-            [InlineKeyboardButton("✏️ تعديل الآيدي/الهاتف", callback_data="BUY_EDIT")],
-            [InlineKeyboardButton("❌ إلغاء الطلب", callback_data="BUY_CANCEL")]
-        ])
-
-        msg_text = (f"❓هل أنت متأكد من معلومات الطلب\n"
-                    f"• المنتج: {prow['name']}\n"
-                    f"• السعر: {money(prow['price'])}\n"
-                    f"• الآيدي/الهاتف: {contact}\n"
-                    f"• الرصيد قبل: {money(current_balance)}\n"
-                    f"• الرصيد بعد:* {money(new_balance)}\n")
-
-        msg = await update.message.reply_text(msg_text, reply_markup=kb, parse_mode=ParseMode.HTML)
-        context.user_data["confirm_msg_id"] = msg.message_id
-        context.user_data["flow"] = None
-        return # هذا السطر ينهي الدالة هنا ويمنع الرسالة الافتراضية
-
     # ------------------- الرسالة الافتراضية -------------------
     await update.message.reply_text("اختر إجراءً من الأزرار.", reply_markup=main_menu_kb())
     await update.message.reply_text("اختر إجراءً من الأزرار.", reply_markup=main_menu_kb())
@@ -1024,6 +954,50 @@ async def on_group_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
 
+async def broadcast_msg_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # تحقق من صلاحيات الأدمن
+    if not is_admin(update.effective_user.id):
+        await update.callback_query.answer("غير مصرح لك باستخدام هذا الأمر.")
+        return
+
+    q = update.callback_query
+    await q.answer()
+
+    # تحديد الحالة (flow) ليتم معالجة الرسالة النصية لاحقاً
+    context.user_data["flow"] = "adm_broadcast"
+    await q.message.reply_text("أرسل الرسالة التي تريد إرسالها لجميع المستخدمين.")
+
+async def send_broadcast_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # تحقق من صلاحيات الأدمن والحالة الصحيحة
+    if not is_admin(update.effective_user.id) or context.user_data.get("flow") != "adm_broadcast":
+        await update.message.reply_text("غير مصرح لك باستخدام هذا الأمر.")
+        return
+
+    message_text = update.message.text
+    # إعادة تعيين الحالة بعد المعالجة
+    context.user_data["flow"] = None
+
+    conn = sqlite3.connect('database.db')
+    cur = conn.cursor()
+    cur.execute("SELECT user_id FROM users")
+    users = cur.fetchall()
+    conn.close()
+
+    sent_count = 0
+    blocked_count = 0
+
+    for user in users:
+        try:
+            await context.bot.send_message(chat_id=user[0], text=message_text)
+            sent_count += 1
+        except Exception:
+            blocked_count += 1
+
+    await update.message.reply_text(
+        f"✅ تم إرسال الرسالة بنجاح.\n\n"
+        f"عدد الرسائل المرسلة: {sent_count}\n"
+        f"عدد المستخدمين المحظورين: {blocked_count}"
+    )
 
 # --------------------- لوحة الأدمن ---------------------
 async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1626,39 +1600,27 @@ async def on_any_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
-def main() -> None:
-    # يجب أن يتم تعريف المتغير 'app' هنا
+def main():
+    init_db()
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # الأوامر
+    # أوامر
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("admin", cmd_admin))
 
-    # معالجة الرسائل
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_user_message))
-
-
-    # معالجات الأزرار الأخرى
-    # تأكد أن on_admin_buttons يأتي قبل on_any_callback إذا كان يحتوي على أنماط عامة
-    app.add_handler(CallbackQueryHandler(on_admin_buttons, pattern=r"^(ADM_.*|PROD_.*|CAT_.*)"))
+    # أزرار إنلاين
     app.add_handler(CallbackQueryHandler(on_any_callback))
 
+    # رسائل المستخدم (لنصوص التدفق)
+    app.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, on_user_message))
 
-
-
-    # الخطوة 2: معالج الرسالة النصية التي سترسلها
-    # هذا المعالج يجب أن يكون في النهاية
-
-    app.add_handler(CallbackQueryHandler(on_any_callback))
-
-    # تأكد من أن هذه الأسطر تأتي في نهاية الدالة
     logger.info("Bot is up.")
-    app.run_polling()
+    app.run_polling(close_loop=False)
 
 
 if __name__ == "__main__":
     main()
-
 
 
 
