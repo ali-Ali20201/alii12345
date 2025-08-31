@@ -405,10 +405,10 @@ async def on_topup_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if data == "SHOW_SHAM_CODE":
         # ضع مُعرّف الصورة الذي حصلت عليه في الخطوة 1 هنا
-        photo_id = "AgACAgQAAxkBAYkui2ixsUvmCDPQVMDpOvFzFISV2TEIAAKeyjEbDEyQUc4oaicsvccZAQADAgADcwADNgQ" 
+        photo_id = "AgACAgQAAxkBAAICmGi0Fipil5pUhXdDpTB73WdQ9QlJAAIb2zEboTGhUcT2ZopIYkjBAQADAgADeAADNgQQ" 
 
         # يمكنك إضافة نص يظهر أسفل الصورة (اختياري)
-        caption_text = f"عنوان شام كاش:\n \n 9cd65bde642da2496b407f8941dc01 \n إذا كنت تريد تحويل الليرة السورية أو الليرة التركية فحول انا احولهم لحسابك ليصبحوا رصيد بالدولار لا تقلق😁"
+        caption_text = f"عنوان شام كاش:\n \n 9cd65bde642da2496b407f8941dc01 \n إذا كنت تريد تحويل دولار أو الليرة التركية فحول انا احولهم لحسابك ليصبحوا رصيد بالليرة السورية لا تقلق😁"
 
         # تأكد من أن هناك صورة أو كود ليرسل
         if not photo_id:
@@ -1621,6 +1621,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
