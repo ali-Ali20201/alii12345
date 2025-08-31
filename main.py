@@ -208,7 +208,7 @@ def set_setting(key: str, value: str):
         update_admins_list()
 
 def money(amount):
-    return f"{amount} $"
+    return f"{amount} ل.س SY"
 
 def get_categories() -> list[sqlite3.Row]:
     conn = sqlite3.connect(DB_PATH)
@@ -1621,6 +1621,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
